@@ -7,7 +7,7 @@ import yaml
 
 
 def is_file(s):
-    if 1 < s.split(os.linesep):
+    if 1 < len(s.split(os.linesep)):
         return False
     return os.path.exists(s)
 
