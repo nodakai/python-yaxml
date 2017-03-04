@@ -12,3 +12,5 @@ class Test(unittest.TestCase):
     <empty/>
 </element>
             ''')
+
+        assert yaxml.validate(yaxml.relaxng_in_relaxng.DATA, yaxml.relaxng_in_relaxng.DATA)

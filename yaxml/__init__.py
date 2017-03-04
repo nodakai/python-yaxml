@@ -2,8 +2,15 @@ import os
 import os.path
 import tempfile
 import subprocess
+import xml.etree.ElementTree as ET
 
 import yaml
+
+from . import relaxng_in_relaxng
+
+
+def load_yaml_as_xml(source):
+    y = yaml.load(source)
 
 
 def is_file(s):
