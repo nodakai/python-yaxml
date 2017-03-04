@@ -50,7 +50,10 @@ def load_yaml_as_xml(source, attribute_prefix='_'):
         if isinstance(yaml, dict):
             for k, v in yaml.items():
                 if attribute_prefix == k[0:1]:
-                    xml.set(k, str(v))
+                    s = str(v)
+                    if isinstance(v, bool):
+                        s = s.lower()
+                    xml.set(k, s)
                 else:
                     sub = ET.SubElement(xml, k)
                     rec_add(path + '/' + k, v, sub)
@@ -62,7 +65,7 @@ def load_yaml_as_xml(source, attribute_prefix='_'):
                 path, yaml, type(yaml)))
     rec_add('/', v, root)
 
-    assert validate(ET.tostring(root).decode('utf-8')), \
+    assert validate(ET.tostring(root, 'unicode')), \
         "YAML {!r} yields an invalid XML".format(source_human)
 
     return ET.ElementTree(root)
