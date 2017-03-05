@@ -315,11 +315,11 @@ def load_yaml_as_xml(source, attribute_prefix='_'):
     def rec_add(path, yaml, xml):
         if isinstance(yaml, dict):
             for k, v in yaml.items():
-                if attribute_prefix == k[0:1]:
+                if attribute_prefix == k[ :len(attribute_prefix)]:
                     s = str(v)
                     if isinstance(v, bool):
                         s = s.lower()
-                    xml.set(k, s)
+                    xml.set(k[len(attribute_prefix): ], s)
                 else:
                     sub = ET.SubElement(xml, k)
                     rec_add(path + '/' + k, v, sub)

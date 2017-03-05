@@ -32,7 +32,7 @@ Root:
             _quux: true
 ''')
 assert (
-    '<Root><Foo><Bar _baz="1" _quux="true" /></Foo></Root>' == ET.tostring(
+    '<Root><Foo><Bar baz="1" quux="true" /></Foo></Root>' == ET.tostring(
         xml.getroot(), 'unicode'))
 ```
 
