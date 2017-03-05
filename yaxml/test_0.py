@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as dom
-from pprint import pprint as pp, pformat as pf
+from pprint import pprint as pp, pformat as pf  # noqa: F401
+from copy import deepcopy as dcp
 
 import yaxml
 
@@ -652,5 +653,99 @@ def test_compile_rngyaml_to_rng():
     assert ok, err
     ok, err = f(ESCAPED_ATTR_3)
     assert ok, err
-#   ok, err = f(ESCAPED_3)
-#   assert ok, err
+
+
+def test_merge_rngyamls_0():
+    y0 = yaxml.load_rngyaml('''
+schema:
+    r:
+        addressBook:
+            _name: true
+            _email: true
+        smallBook:
+            _name: true
+    ''')
+
+    y1 = yaxml.load_rngyaml('''
+schema:
+    r:
+        addressBook:
+            _more: true
+        smallBook:
+            _more: true
+    ''')
+    y10 = dcp(y1)
+
+    yaxml.merge_rngyamls(y0, y1)
+    assert y10 == y1
+
+    y1 = y0.pop('child')
+    assert {
+        'element': 'element',
+        'name': 'r'
+    } == y0
+
+    y2 = y1.pop('child')
+    assert {
+        'element': 'interleave',
+    } == y1
+
+    y3, y4 = y2
+    if y3['name'] == 'smallBook':
+        y3, y4 = y4, y3
+
+    y30 = y3.pop('child')
+    assert {
+        'element': 'element',
+        'name': 'addressBook'
+    } == y3
+
+    name = next(e for e in y30 if e['name'] == 'name')
+    email = next(e for e in y30 if e['name'] == 'email')
+    more = next(e for e in y30 if e['name'] == 'more')
+
+    assert {
+        'element': 'attribute',
+        'name': 'name',
+        'child': {
+            'element': 'text'
+        }
+    } == name
+    assert {
+        'element': 'attribute',
+        'name': 'email',
+        'child': {
+            'element': 'text'
+        }
+    } == email
+    assert {
+        'element': 'attribute',
+        'name': 'more',
+        'child': {
+            'element': 'text'
+        }
+    } == more
+
+    y40 = y4.pop('child')
+    assert {
+        'element': 'element',
+        'name': 'smallBook'
+    } == y4
+
+    name = next(e for e in y40 if e['name'] == 'name')
+    more = next(e for e in y40 if e['name'] == 'more')
+
+    assert {
+        'element': 'attribute',
+        'name': 'name',
+        'child': {
+            'element': 'text'
+        }
+    } == name
+    assert {
+        'element': 'attribute',
+        'name': 'more',
+        'child': {
+            'element': 'text'
+        }
+    } == more

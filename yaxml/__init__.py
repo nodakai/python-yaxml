@@ -1,3 +1,4 @@
+import sys
 import os
 import os.path
 import tempfile
@@ -25,7 +26,11 @@ def abbrev(source):
 
 class Exc(Exception):
     def __init__(self, fmt, *args):
-        super(Exc, self).__init__(fmt.format(*args))
+        if args:
+            s = fmt.format(*args)
+        else:
+            s = fmt
+        super(Exc, self).__init__(s)
 
 
 class RngYamlParseError(Exc):
@@ -49,9 +54,9 @@ class RngYamlParser(object):
             for k, v in y.items():
                 if k in (self._directive_prefix + 'attribute', self._directive_prefix + 'element'):
                     element = k[len(self._directive_prefix): ]
-                    assert 1 == len(v), (
+                    assert 1 == len(v), \
                         "{}{} at {!r} MUST contain a sinle-element dict, but: {}".format(
-                            self._directive_prefix, element, path, pprint.pformat(v)))
+                            self._directive_prefix, element, path, pprint.pformat(v))
                     vk, vv = v.popitem()
                     e = self.parse_element(path, vk, vv, element)
                     interleave.append(e)
@@ -74,6 +79,8 @@ class RngYamlParser(object):
                 elif self._directive_prefix + 'notAllowed' == k:
                     raise Exception("not supported")
                 elif self._directive_prefix + 'externalRef' == k:
+                    raise Exception("not supported")
+                elif self._directive_prefix + 'grammar' == k:
                     raise Exception("not supported")
                 elif self._directive_prefix + 'grammar' == k:
                     raise Exception("not supported")
@@ -150,9 +157,90 @@ def load_rngyaml(source, validate=True):
     return ret
 
 
-def compile_rngyaml_to_rng(rngyaml):
-    assert isinstance(rngyaml, dict), (
-        "RngYaml MUST have a mapping at its root, but: {}".format(pprint.pformat(rngyaml)))
+DISJOINT, OVERWRITE_WARN, OVERWRITE_QUIET = range(3)
+MEGE_MODE_S = {
+    DISJOINT: 'DISJOINT',
+    OVERWRITE_WARN: 'OVERWRITE_WARN',
+    OVERWRITE_QUIET: 'OVERWRITE_QUIET'
+}
+
+
+def merge_mode_to_str(m):
+    return MEGE_MODE_S.get(m, "Unknown merge mode " + str(m))
+
+
+def merge_rngyamls(base, new, default_merge_mode=DISJOINT):  # noqa: C901
+    def merge(path, base, new, merge_mode, interleave=False):
+        if isinstance(base, dict):
+            assert isinstance(new, dict), "base is a dict but new is: {}".format(
+                pprint.pformat(new))
+
+            if base['element'] == 'interleave':
+                assert new['element'] == 'interleave', "{}: cannot merge {!r} into {!r}".foramt(
+                    path, new, base)
+                merge(path, base['child'], new['child'], merge_mode, True)
+            elif 'attribute' == base['element'] and 'attribute' == new['element']:
+                if DISJOINT == default_merge_mode:
+                    assert base['name'] != new['name'], \
+                        "{} and {} aren't disjoint".format(
+                            pprint.pformat(base), pprint.pformat(new))
+            else:
+                for k, v in new.items():
+                    if DISJOINT == default_merge_mode:
+                        assert 'child' == k or v == base[k] or k not in base, \
+                            "{} and {} has {!r}={!r} (={!r}) in common, aren't disjoint".format(
+                                pprint.pformat(base), pprint.pformat(new), k, base[k], v)
+                        merge(path + '/' + k, base[k], new[k], merge_mode)
+        elif isinstance(base, list):
+            if isinstance(new, list):
+                assert interleave, \
+                    "{}: don't know how to merge lists not under <interleave>".format(path)
+                for ne in new:
+                    for be in base:
+                        if DISJOINT == merge_mode:
+                            if be['name'] == ne['name']:
+                                assert not (be['element'] == 'attribute' and
+                                            ne['element'] == 'attribute'), \
+                                    "{!r} and {!r} have a common attr {!r}, aren't disjoint".format(
+                                        base, new, be['name'])
+                                if not isinstance(be['child'], list):
+                                    be['child'] = [be['child']]
+                                merge(path + '/' + be['name'], be['child'], ne['child'], merge_mode)
+                                break
+                        else:
+                            if be['element'] == ne['element'] and be['name'] == ne['name']:
+                                if OVERWRITE_WARN == merge_mode:
+                                    sys.stderr.write("WARN: overwriting {}\n".format(be['name']))
+                                be.clear()
+                                be.update(ne)
+                                break
+                    else:
+                        base.append(ne)
+            elif isinstance(new, dict):
+                for be in base:
+                    if DISJOINT == merge_mode:
+                        assert not (new['element'] == be['element'] and
+                                    new['name'] == be['name']), \
+                            "{!r} and {!r} have a common attr {!r}, aren't disjoint".format(
+                                be, new, be['name'])
+                else:
+                    base.append(new)
+            else:
+                raise RngYamlParseError("{}: {}: what is {} of type {}".format(
+                    path, base, pprint.pformat(new), type(new)))
+        elif is_scalar(base):
+            if DISJOINT == merge_mode:
+                assert base == new, "{!r} != {!r}: not disjoint".format(base, new)
+        else:
+            raise Exception("{}: what is {}".format(path, pprint.pformat(base)))
+
+    merge('/', base, new, default_merge_mode)
+    return base
+
+
+def compile_rngyaml_to_rng(rngyaml):  # noqa: C901
+    assert isinstance(rngyaml, dict), \
+        "RngYaml MUST have a mapping at its root, but: {}".format(pprint.pformat(rngyaml))
 
     def parse(path, ry, xml):
         if isinstance(ry, dict):
