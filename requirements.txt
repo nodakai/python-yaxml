@@ -1,7 +1,9 @@
 appdirs==1.4.2
 packaging==16.8
-pkg-resources==0.0.0
 py==1.4.32
+pyparsing==2.1.10
 pytest==3.0.6
 PyYAML==3.12
 six==1.10.0
+Sphinx==1.4.9
+sphinx-rtd-theme==0.2.2
