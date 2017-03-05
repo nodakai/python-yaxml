@@ -103,24 +103,31 @@ class RngYamlParser(object):
         return { 'element': 'text' }
 
 
-def load_rngyaml(source):
+def load_rngyaml(source, validate=True):
     source_abr = abbrev(source)
     if is_filepath(source):
         with open(source) as fp:
             y = pyyaml.load(fp)
     else:
         y = pyyaml.load(source)
-
     assert isinstance(y, dict), \
         "RngYaml {!r} MUST have a mapping at the top-level, but: {}".format(
             source_abr, pprint.pformat(y))
+
     prefix = y.get('prefix', '$')
     schema = y.get('schema')
     assert isinstance(schema, dict) and 1 == len(schema), (
         "RngYaml {!r} MUST have a //schema element which is a single mapping, but: {}".format(
             source_abr, pprint.pformat(schema)))
     parser = RngYamlParser(prefix)
-    return parser.parse_pattern('/', schema)
+    ret = parser.parse_pattern('/', schema)
+
+    if validate:
+        ret_as_xmlstr = ET.tostring(compile_rngyaml_to_rng(ret), 'unicode')
+        rc, err = run_validator(ret_as_xmlstr, relaxng_in_relaxng.DATA)
+        assert 0 == rc, err
+
+    return ret
 
 
 def compile_rngyaml_to_rng(rngyaml):
@@ -260,7 +267,7 @@ def run_validator(data, schema=None):
             cmdline.append(data_path)
             p = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
-            return (p.returncode, stdout, stderr)
+            return (p.returncode, stderr)
 
         return with_prepared_input(data, 'data', validate0)
 
