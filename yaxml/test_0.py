@@ -1,3 +1,4 @@
+from copy import deepcopy as dcp
 import xml.etree.ElementTree as ET
 
 import yaxml
@@ -27,11 +28,15 @@ Root:
             xml.getroot(), 'unicode'))
 
 
-def test_load_rngyaml_0():
-    y = yaxml.load_rngyaml('''
+Y0 = yaxml.load_rngyaml('''
 schema:
     addressBook: true
-    ''')
+''')
+
+
+def test_load_rngyaml_0():
+    y = dcp(Y0)
+
     assert {
         'element': 'element',
         'name': 'addressBook',
@@ -40,13 +45,17 @@ schema:
         }
     } == y
 
-def test_load_rngyaml_1():
-    y = yaxml.load_rngyaml('''
+
+Y1 = yaxml.load_rngyaml('''
 schema:
     addressBook:
         - name: true
         - email: true
-    ''')
+''')
+
+
+def test_load_rngyaml_1():
+    y = dcp(Y1)
 
     y0 = y.pop('child')
     assert {
@@ -70,14 +79,18 @@ schema:
         }
     } == y2
 
-def test_load_rngyaml_2():
-    y = yaxml.load_rngyaml('''
+
+Y2 = yaxml.load_rngyaml('''
 schema:
     addressBook:
         card*:
             - name: true
             - email: true
-    ''')
+''')
+
+
+def test_load_rngyaml_2():
+    y = dcp(Y2)
 
     y0 = y.pop('child')
     assert {
@@ -111,3 +124,13 @@ schema:
             'element': 'text'
         }
     } == y4
+
+
+def test_compile_rngyaml_to_rng():
+    def f(y):
+        s = ET.tostring(yaxml.compile_rngyaml_to_rng(dcp(y)), 'unicode')
+        return yaxml.validate(s, yaxml.relaxng_in_relaxng.DATA)
+
+    assert f(Y0)
+    assert f(Y1)
+    assert f(Y2)

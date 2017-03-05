@@ -33,7 +33,8 @@ class RngYamlParseError(Exc):
         super(RngYamlParseError, self).__init__(fmt, *args)
 
 
-MODIFIERS = { '*': 'zeroOrMore', '+': 'oneOrMore', '?': 'optional' }
+MODIFIERS = [ 'zeroOrMore', 'oneOrMore', 'optional' ]
+MODIFIERS_D = dict(p for p in zip(['*', '+', '?'], MODIFIERS))
 
 
 class RngYamlParser(object):
@@ -41,7 +42,7 @@ class RngYamlParser(object):
         self._prefix = prefix
         self._extra_checks = []
 
-    def parse_pattern(self, path, y):
+    def parse_pattern(self, path, y):  # I know it's very complex # noqa: C901
         if isinstance(y, dict):
             for k, v in y.items():
                 if self._prefix + 'attribute' == k:
@@ -59,10 +60,6 @@ class RngYamlParser(object):
                 elif self._prefix + 'ref' == k:
                     pass
                 elif self._prefix + 'parentRef' == k:
-                    pass
-                elif self._prefix + 'empty' == k:
-                    pass
-                elif self._prefix + 'text' == k:
                     pass
                 elif self._prefix + 'value' == k:
                     pass
@@ -84,7 +81,7 @@ class RngYamlParser(object):
             raise Exception("{}: what is {}".format(path, pprint.pformat(y)))
 
     def parse_element(self, path, name, val):
-        mod = MODIFIERS.get(name[-1: ])
+        mod = MODIFIERS_D.get(name[-1: ])
         if mod:
             realname = name[ :-1]
         else:
@@ -124,6 +121,38 @@ def load_rngyaml(source):
             source_abr, pprint.pformat(schema)))
     parser = RngYamlParser(prefix)
     return parser.parse_pattern('/', schema)
+
+
+def compile_rngyaml_to_rng(rngyaml):
+    assert isinstance(rngyaml, dict), (
+        "RngYaml MUST have a mapping at its root, but: {}".format(pprint.pformat(rngyaml)))
+
+    def parse(path, ry, xml):
+        if isinstance(ry, dict):
+            element = ry['element']
+            if 'element' == element:
+                name = ry['name']
+                sub = ET.SubElement(xml, 'element')
+                sub.set('name', name)
+                child = ry.get('child')
+                if None is not child:
+                    parse(path + '/' + 'element:' + name, child, sub)
+            elif element in MODIFIERS:
+                sub = ET.SubElement(xml, element)
+                child = ry['child']
+                parse(path + '/' + element, child, sub)
+            elif 'text' == element:
+                sub = ET.SubElement(xml, element)
+        elif isinstance(ry, list):
+            for e in ry:
+                parse(path, e, xml)
+        else:
+            raise Exception("{}: what is {}".format(path, pprint.pformat(ry)))
+    dummy_root = ET.Element(None)
+    parse('/', rngyaml, dummy_root)
+    root = next(child for child in dummy_root)
+    root.set('xmlns', 'http://relaxng.org/ns/structure/1.0')
+    return root
 
 
 def is_scalar(x):
