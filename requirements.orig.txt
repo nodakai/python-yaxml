@@ -1,0 +1,5 @@
+pip-tools
+
+PyYAML
+pytest
+sphinx-rtd-theme
