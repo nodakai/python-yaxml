@@ -25,7 +25,7 @@ pygments==2.6.1           # via sphinx
 pyparsing==2.4.7          # via packaging
 pytest==6.0.1             # via -r requirements.orig.txt
 pytz==2020.1              # via babel
-pyyaml==5.3.1             # via -r requirements.orig.txt
+pyyaml==5.4             # via -r requirements.orig.txt
 requests==2.24.0          # via sphinx
 six==1.15.0               # via packaging, pip-tools
 snowballstemmer==2.0.0    # via sphinx
